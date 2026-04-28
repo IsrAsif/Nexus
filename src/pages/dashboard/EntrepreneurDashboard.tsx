@@ -1,0 +1,180 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Users, Bell, Calendar, TrendingUp, AlertCircle, PlusCircle, Wallet } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { CollaborationRequestCard } from '../../components/collaboration/CollaborationRequestCard';
+import { InvestorCard } from '../../components/investor/InvestorCard';
+import { useAuth } from '../../context/AuthContext';
+import { CollaborationRequest } from '../../types';
+import { getRequestsForEntrepreneur } from '../../data/collaborationRequests';
+import { investors } from '../../data/users';
+import { getWallet } from '../../data/payments';
+import { TourLauncher, GuidedTour } from '../../components/tour/GuidedTour';
+
+const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+
+export const EntrepreneurDashboard: React.FC = () => {
+  const { user } = useAuth();
+  const [collaborationRequests, setCollaborationRequests] = useState<CollaborationRequest[]>([]);
+  const [recommendedInvestors] = useState(investors.slice(0, 3));
+
+  useEffect(() => {
+    if (user) {
+      const requests = getRequestsForEntrepreneur(user.id);
+      setCollaborationRequests(requests);
+    }
+  }, [user]);
+
+  const handleRequestStatusUpdate = (requestId: string, status: 'accepted' | 'rejected') => {
+    setCollaborationRequests(prev =>
+      prev.map(req => req.id === requestId ? { ...req, status } : req)
+    );
+  };
+
+  if (!user) return null;
+
+  const pendingRequests = collaborationRequests.filter(req => req.status === 'pending');
+  const wallet = getWallet(user.id);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <GuidedTour role="entrepreneur" />
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div data-tour="dashboard-title">
+          <h1 className="text-2xl font-bold text-gray-900">Welcome, {user.name}</h1>
+          <p className="text-gray-600">Here's what's happening with your startup today</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link to="/payments">
+            <div className="flex items-center gap-2 bg-primary-50 border border-primary-100 rounded-lg px-4 py-2 hover:bg-primary-100 transition-colors">
+              <Wallet size={16} className="text-primary-600" />
+              <span className="text-sm font-semibold text-primary-700">{fmt(wallet.balance)}</span>
+            </div>
+          </Link>
+          <Link to="/investors">
+            <Button leftIcon={<PlusCircle size={18} />}>Find Investors</Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-primary-50 border border-primary-100">
+          <CardBody>
+            <div className="flex items-center">
+              <div className="p-3 bg-primary-100 rounded-full mr-4">
+                <Bell size={20} className="text-primary-700" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-primary-700">Pending Requests</p>
+                <h3 className="text-xl font-semibold text-primary-900">{pendingRequests.length}</h3>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card className="bg-secondary-50 border border-secondary-100">
+          <CardBody>
+            <div className="flex items-center">
+              <div className="p-3 bg-secondary-100 rounded-full mr-4">
+                <Users size={20} className="text-secondary-700" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-secondary-700">Total Connections</p>
+                <h3 className="text-xl font-semibold text-secondary-900">
+                  {collaborationRequests.filter(req => req.status === 'accepted').length}
+                </h3>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card className="bg-accent-50 border border-accent-100">
+          <CardBody>
+            <div className="flex items-center">
+              <div className="p-3 bg-accent-100 rounded-full mr-4">
+                <Calendar size={20} className="text-accent-700" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-accent-700">Upcoming Meetings</p>
+                <h3 className="text-xl font-semibold text-accent-900">2</h3>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card className="bg-green-50 border border-green-100">
+          <CardBody>
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 rounded-full mr-4">
+                <TrendingUp size={20} className="text-green-700" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-green-700">Profile Views</p>
+                <h3 className="text-xl font-semibold text-green-900">24</h3>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Collaboration requests */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card>
+            <CardHeader className="flex justify-between items-center">
+              <h2 className="text-lg font-medium text-gray-900">Collaboration Requests</h2>
+              <Badge variant="primary">{pendingRequests.length} pending</Badge>
+            </CardHeader>
+            <CardBody>
+              {collaborationRequests.length > 0 ? (
+                <div className="space-y-4">
+                  {collaborationRequests.map(request => (
+                    <CollaborationRequestCard
+                      key={request.id}
+                      request={request}
+                      onStatusUpdate={handleRequestStatusUpdate}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                    <AlertCircle size={24} className="text-gray-500" />
+                  </div>
+                  <p className="text-gray-600">No collaboration requests yet</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    When investors are interested in your startup, their requests will appear here
+                  </p>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Recommended investors */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="flex justify-between items-center">
+              <h2 className="text-lg font-medium text-gray-900">Recommended Investors</h2>
+              <Link to="/investors" className="text-sm font-medium text-primary-600 hover:text-primary-500">
+                View all
+              </Link>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              {recommendedInvestors.map(investor => (
+                <InvestorCard key={investor.id} investor={investor} showActions={false} />
+              ))}
+            </CardBody>
+          </Card>
+        </div>
+      </div>
+
+      <TourLauncher role="entrepreneur" />
+    </div>
+  );
+};
